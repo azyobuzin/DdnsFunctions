@@ -160,27 +160,36 @@ namespace DdnsFunctions
             var domainId = (string)domains[0]["id"];
 
             // レコードを探す
-            var recordId = (await dnsServiceClient.GetRecordsAsync(domainId))["records"]
+            var existingRecord = (await dnsServiceClient.GetRecordsAsync(domainId))["records"]
                 .Where(x => (string)x["name"] == fullName && (string)x["type"] == input.Type)
-                .Select(x => (string)x["id"])
                 .FirstOrDefault();
 
             const string description = "Configured by DdnsFunctions";
 
-            if (recordId != null)
+            if (existingRecord != null)
             {
-                // 更新
-                log.LogInformation("レコード {RecordId} に {Value} を設定します。", recordId, input.Value);
+                var recordId = (string)existingRecord["id"];
 
-                await dnsServiceClient.UpdateRecordAsync(
-                    domainId, recordId,
-                    new
-                    {
-                        data = input.Value,
-                        ttl,
-                        description,
-                    }
-                );
+                if ((string)existingRecord["data"] == input.Value)
+                {
+                    // 更新不要
+                    log.LogInformation("レコード {RecordId} はすでに {Value} が設定されています。", recordId, input.Value);
+                }
+                else
+                {
+                    // 更新
+                    log.LogInformation("レコード {RecordId} に {Value} を設定します。", recordId, input.Value);
+
+                    await dnsServiceClient.UpdateRecordAsync(
+                        domainId, recordId,
+                        new
+                        {
+                            data = input.Value,
+                            ttl,
+                            description,
+                        }
+                    );
+                }
             }
             else
             {
